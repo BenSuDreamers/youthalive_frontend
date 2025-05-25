@@ -48,16 +48,15 @@ const GuestSearch: React.FC<GuestSearchProps> = ({ eventId }) => {
 
     return () => clearTimeout(timeoutId);
   };
-
   const handleManualCheckIn = async (attendee: Attendee) => {
     try {
-      await checkinService.scanQR({ qrData: attendee.invoiceNumber });
+      await checkinService.scanQR({ qrData: attendee.invoiceNo });
       
       // Update local state
       setAttendees(prev => 
         prev.map(a => 
-          a._id === attendee._id 
-            ? { ...a, checkedIn: true, checkedInAt: new Date().toISOString() }
+          a.id === attendee.id 
+            ? { ...a, checkedIn: true, checkInTime: new Date().toISOString() }
             : a
         )
       );
@@ -111,22 +110,18 @@ const GuestSearch: React.FC<GuestSearchProps> = ({ eventId }) => {
           <div className="alert alert-info">
             No attendees found matching your search.
           </div>
-        )}
-
-        {attendees.map((attendee) => (
+        )}        {attendees.map((attendee) => (
           <div
-            key={attendee._id}
+            key={attendee.id}
             className={`attendee-card ${attendee.checkedIn ? 'checked-in' : ''}`}
           >
             <div className="attendee-info">
               <div className="attendee-details">
-                <h3>{attendee.attendeeName}</h3>
-                <p><strong>Email:</strong> {attendee.attendeeEmail}</p>
-                <p><strong>Phone:</strong> {attendee.attendeePhone}</p>
-                <p><strong>Church:</strong> {attendee.attendeeChurch}</p>
-                <p><strong>Invoice:</strong> {attendee.invoiceNumber}</p>
-                {attendee.checkedIn && attendee.checkedInAt && (
-                  <p><strong>Checked in:</strong> {formatDateTime(attendee.checkedInAt)}</p>
+                <h3>{attendee.name}</h3>
+                <p><strong>Email:</strong> {attendee.email}</p>
+                <p><strong>Invoice:</strong> {attendee.invoiceNo}</p>
+                {attendee.checkedIn && attendee.checkInTime && (
+                  <p><strong>Checked in:</strong> {formatDateTime(attendee.checkInTime)}</p>
                 )}
               </div>
               

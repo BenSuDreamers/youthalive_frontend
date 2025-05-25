@@ -19,17 +19,12 @@ checkinAPI.interceptors.request.use((config) => {
 });
 
 export interface Attendee {
-  _id: string;
-  invoiceNumber: string;
-  user: string;
-  event: string;
-  attendeeName: string;
-  attendeeEmail: string;
-  attendeePhone: string;
-  attendeeChurch: string;
+  id: string;
+  invoiceNo: string;
+  name: string;
+  email: string;
   checkedIn: boolean;
-  checkedInAt?: string;
-  createdAt: string;
+  checkInTime?: string;
 }
 
 export interface SearchQuery {
@@ -44,11 +39,15 @@ export interface ScanData {
 export const checkinService = {
   searchAttendees: async (searchQuery: SearchQuery): Promise<Attendee[]> => {
     const response = await checkinAPI.get('/search', { params: searchQuery });
-    return response.data;
-  },
-
-  scanQR: async (scanData: ScanData): Promise<{ ticket: Attendee; message: string }> => {
-    const response = await checkinAPI.post('/scan', scanData);
-    return response.data;
+    return response.data.data || response.data; // Handle both wrapped and unwrapped responses
+  },  scanQR: async (scanData: ScanData): Promise<{ ticket: Attendee; message: string }> => {
+    // Transform qrData to the format the backend expects
+    const requestData = { invoiceNo: scanData.qrData };
+    const response = await checkinAPI.post('/scan', requestData);
+    // Handle backend's structured response
+    return {
+      ticket: response.data.data || response.data,
+      message: response.data.message || 'Check-in successful'
+    };
   },
 };

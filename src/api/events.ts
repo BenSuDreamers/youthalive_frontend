@@ -31,6 +31,6 @@ export interface Event {
 export const eventsService = {
   getEvents: async (): Promise<Event[]> => {
     const response = await eventsAPI.get('/');
-    return response.data;
+    return response.data.data || response.data; // Handle both wrapped and unwrapped responses
   },
 };
