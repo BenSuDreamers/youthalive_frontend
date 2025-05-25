@@ -1,0 +1,36 @@
+import axios from 'axios';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+
+const eventsAPI = axios.create({
+  baseURL: `${API_BASE_URL}/events`,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add token to requests if available
+eventsAPI.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export interface Event {
+  _id: string;
+  formId: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const eventsService = {
+  getEvents: async (): Promise<Event[]> => {
+    const response = await eventsAPI.get('/');
+    return response.data;
+  },
+};
