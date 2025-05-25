@@ -29,7 +29,9 @@
     "eject": "react-scripts eject",
     "lint": "eslint src --ext .ts,.tsx",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "analyze": "source-map-explorer 'build/static/js/*.js'"
+    "analyze": "source-map-explorer 'build/static/js/*.js'",
+    "deploy": "vercel --prod",
+    "deploy:preview": "vercel"
   },
   "eslintConfig": {
     "extends": [
