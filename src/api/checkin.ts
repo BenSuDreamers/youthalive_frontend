@@ -25,6 +25,9 @@ export interface Attendee {
   email: string;
   phone?: string;
   church?: string;
+  quantity?: number;
+  productDetails?: string;
+  totalAmount?: number;
   checkedIn: boolean;
   checkInTime?: string;
   event?: string;

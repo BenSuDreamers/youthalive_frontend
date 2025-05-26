@@ -7,6 +7,9 @@ interface TicketDetails {
   email: string;
   phone?: string;
   church?: string;
+  quantity?: number;
+  productDetails?: string;
+  totalAmount?: number;
   checkedIn: boolean;
   checkInTime?: string;
 }
@@ -61,11 +64,24 @@ const CheckinModal: React.FC<CheckinModalProps> = ({
                 <span>{ticketDetails.church}</span>
               </div>
             )}
-            
-            <div className="detail-row">
+              <div className="detail-row">
               <label>Invoice Number:</label>
               <span>{ticketDetails.invoiceNo}</span>
             </div>
+            
+            {ticketDetails.quantity && ticketDetails.quantity > 1 && (
+              <div className="detail-row">
+                <label>Tickets Purchased:</label>
+                <span>{ticketDetails.quantity}</span>
+              </div>
+            )}
+            
+            {ticketDetails.productDetails && (
+              <div className="detail-row">
+                <label>Product Details:</label>
+                <span>{ticketDetails.productDetails}</span>
+              </div>
+            )}
             
             <div className="detail-row">
               <label>Status:</label>
