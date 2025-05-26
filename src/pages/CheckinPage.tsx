@@ -111,10 +111,10 @@ const CheckinPage: React.FC = () => {
                 </button>
               </div>
             </div>
-            
-            <div className="card-body">
+              <div className="card-body">
               {activeTab === 'scanner' ? (
                 <QRScanner
+                  eventId={eventId || undefined}
                   onScanSuccess={handleScanSuccess}
                   onScanError={handleScanError}
                 />

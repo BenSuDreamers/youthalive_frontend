@@ -1,18 +1,27 @@
 import React, { useEffect, useRef, useState } from 'react';
 // @ts-ignore
 import { Html5QrcodeScanner } from 'html5-qrcode';
-import { checkinService } from '../api/checkin';
+import { checkinService, Attendee } from '../api/checkin';
+import CheckinModal from './CheckinModal';
 
 interface QRScannerProps {
   onScanSuccess?: (result: any) => void;
   onScanError?: (error: string) => void;
+  eventId?: string; // Add eventId to ensure QR codes are scanned for specific event
 }
 
-const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanError }) => {
+const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanError, eventId }) => {
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error' | ''>('');
+  const [scannedCodes, setScannedCodes] = useState<Set<string>>(new Set()); // Track scanned codes to prevent duplicates
+  
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [currentTicket, setCurrentTicket] = useState<Attendee | null>(null);
+  const [isProcessingCheckin, setIsProcessingCheckin] = useState(false);
+
   useEffect(() => {
     const config = {
       fps: 10,
@@ -20,33 +29,68 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanError }) => 
       aspectRatio: 1.0,
       supportedScanTypes: [0], // Only QR codes
       showTorchButtonIfSupported: true,
-      showZoomSliderIfSupported: true,
+      showZoomSliderIfSupported: false, // Hide zoom slider to reduce UI clutter
+      // Configure camera selection to prefer back camera
+      videoConstraints: {
+        facingMode: { ideal: "environment" } // Back camera
+      },
+      // Improved mobile compatibility
+      experimentalFeatures: {
+        useBarCodeDetectorIfSupported: true
+      }
     };
 
     const scanner = new (Html5QrcodeScanner as any)('qr-reader', config, false);
     scannerRef.current = scanner;
 
     const onScanSuccessCallback = async (decodedText: string) => {
-      setIsScanning(true);
-      setMessage('Processing check-in...');
-      setMessageType('');
-
-      try {
-        const result = await checkinService.scanQR({ qrData: decodedText });
-        setMessage(result.message);
-        setMessageType('success');
-        
-        if (onScanSuccess) {
-          onScanSuccess(result);
-        }
-
-        // Auto-clear message after 3 seconds
+      // Check for duplicate scans
+      if (scannedCodes.has(decodedText)) {
+        setMessage('This QR code has already been scanned');
+        setMessageType('error');
         setTimeout(() => {
           setMessage('');
           setMessageType('');
         }, 3000);
+        return;
+      }
+
+      setIsScanning(true);
+      setMessage('Looking up ticket...');
+      setMessageType('');
+
+      try {
+        // First, lookup the ticket details without checking in
+        const ticketDetails = await checkinService.lookupTicket(decodedText, eventId);
+        
+        // Add to scanned codes to prevent duplicate scans
+        setScannedCodes(prev => {
+          const newSet = new Set(prev);
+          newSet.add(decodedText);
+          return newSet;
+        });
+        
+        // Show the modal with ticket details
+        setCurrentTicket(ticketDetails);
+        setShowModal(true);
+        setMessage('');
+        setMessageType('');
+        
       } catch (error: any) {
-        const errorMessage = error.response?.data?.message || 'Check-in failed. Please try again.';
+        console.error('QR lookup error details:', error);
+        
+        let errorMessage = 'Ticket lookup failed. Please try again.';
+        
+        // Handle specific error cases
+        if (error.response?.status === 404) {
+          errorMessage = 'QR code not found. This ticket may not exist or may be for a different event.';
+        } else if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.message && !error.message.includes('toStrong')) {
+          // Suppress the mobile "toStrong" error but show other meaningful errors
+          errorMessage = error.message;
+        }
+        
         setMessage(errorMessage);
         setMessageType('error');
         
@@ -65,51 +109,168 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanError }) => 
     };
 
     const onScanErrorCallback = (errorMessage: string) => {
-      // Don't log every scan attempt error, just major issues
-      if (errorMessage.includes('No QR code found') === false) {
-        console.warn('QR Scan Error:', errorMessage);
+      // Suppress common mobile errors and scanning attempt messages
+      if (errorMessage.includes('No QR code found') || 
+          errorMessage.includes('toStrong') ||
+          errorMessage.includes('QR code parse error')) {
+        return; // Don't log these common scanning errors
       }
+      console.warn('QR Scan Error:', errorMessage);
     };
 
-    scanner.render(onScanSuccessCallback, onScanErrorCallback);
+    // Enhanced scanner initialization with better mobile support
+    try {
+      scanner.render(onScanSuccessCallback, onScanErrorCallback);
+    } catch (error) {
+      console.error('Scanner initialization error:', error);
+      setMessage('Camera initialization failed. Please check camera permissions.');
+      setMessageType('error');
+    }
 
     return () => {
       if (scannerRef.current) {
-        scannerRef.current.clear().catch(console.error);
+        try {
+          scannerRef.current.clear().catch((clearError: any) => {
+            // Suppress cleanup errors on mobile
+            if (!clearError.message?.includes('toStrong')) {
+              console.error('Scanner cleanup error:', clearError);
+            }
+          });
+        } catch (error) {
+          // Suppress cleanup errors
+        }
       }
     };
-  }, [onScanSuccess, onScanError]);
+  }, [onScanSuccess, onScanError, eventId]); // Add eventId to dependencies
+
+  // Handle modal confirmation (actual check-in)
+  const handleConfirmCheckin = async () => {
+    if (!currentTicket) return;
+
+    setIsProcessingCheckin(true);
+    
+    try {
+      const result = await checkinService.scanQR({ 
+        qrData: currentTicket.invoiceNo,
+        eventId: eventId 
+      });
+      
+      setMessage(result.message);
+      setMessageType('success');
+      setShowModal(false);
+      setCurrentTicket(null);
+      
+      if (onScanSuccess) {
+        onScanSuccess(result);
+      }
+
+      // Auto-clear message after 3 seconds
+      setTimeout(() => {
+        setMessage('');
+        setMessageType('');
+      }, 3000);
+      
+    } catch (error: any) {
+      console.error('Check-in error:', error);
+      
+      let errorMessage = 'Check-in failed. Please try again.';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      setMessage(errorMessage);
+      setMessageType('error');
+      
+      if (onScanError) {
+        onScanError(errorMessage);
+      }
+
+      // Auto-clear error after 5 seconds
+      setTimeout(() => {
+        setMessage('');
+        setMessageType('');
+      }, 5000);
+    } finally {
+      setIsProcessingCheckin(false);
+    }
+  };
+
+  // Handle modal cancellation
+  const handleCancelCheckin = () => {
+    setShowModal(false);
+    setCurrentTicket(null);
+  };
+
+  // Function to clear scanned codes history
+  const clearScannedCodes = () => {
+    setScannedCodes(new Set());
+    setMessage('Scanned codes history cleared');
+    setMessageType('success');
+    setTimeout(() => {
+      setMessage('');
+      setMessageType('');
+    }, 2000);
+  };
 
   return (
-    <div className="qr-scanner-container">
-      <h2 style={{ textAlign: 'center', marginBottom: '1rem', color: 'var(--text-primary)' }}>
-        QR Code Scanner
-      </h2>
-      
-      <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-        Position the QR code within the scanner frame
-      </p>
+    <>
+      <div className="qr-scanner-container">
+        <h2 style={{ textAlign: 'center', marginBottom: '1rem', color: 'var(--text-primary)' }}>
+          QR Code Scanner
+        </h2>
+        
+        <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+          Position the QR code within the scanner frame
+          {eventId && <><br /><small>Scanning for current event only</small></>}
+        </p>
 
-      {message && (
-        <div className={`alert ${messageType === 'success' ? 'alert-success' : 'alert-error'}`}>
-          {message}
+        {message && (
+          <div className={`alert ${messageType === 'success' ? 'alert-success' : 'alert-error'}`}>
+            {message}
+          </div>
+        )}
+
+        {isScanning && (
+          <div className="loading-container" style={{ minHeight: '60px' }}>
+            <div className="loading-spinner"></div>
+            <p>Looking up ticket...</p>
+          </div>
+        )}
+
+        <div id="qr-reader" className="qr-scanner"></div>
+        
+        <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+          {scannedCodes.size > 0 && (
+            <div style={{ marginBottom: '1rem' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                Scanned codes: {scannedCodes.size}
+              </p>
+              <button 
+                onClick={clearScannedCodes}
+                className="btn btn-secondary"
+                style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+              >
+                Clear History
+              </button>
+            </div>
+          )}
+          
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+            <p>Allow camera access when prompted</p>
+            <p>Make sure the QR code is well-lit and clearly visible</p>
+            <p>Review ticket details before confirming check-in</p>
+          </div>
         </div>
-      )}
-
-      {isScanning && (
-        <div className="loading-container" style={{ minHeight: '60px' }}>
-          <div className="loading-spinner"></div>
-          <p>Processing check-in...</p>
-        </div>
-      )}
-
-      <div id="qr-reader" className="qr-scanner"></div>
-      
-      <div style={{ textAlign: 'center', marginTop: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-        <p>Allow camera access when prompted</p>
-        <p>Make sure the QR code is well-lit and clearly visible</p>
       </div>
-    </div>
+
+      <CheckinModal
+        isOpen={showModal}
+        ticketDetails={currentTicket}
+        onConfirm={handleConfirmCheckin}
+        onCancel={handleCancelCheckin}
+        isProcessing={isProcessingCheckin}
+      />
+    </>
   );
 };
 

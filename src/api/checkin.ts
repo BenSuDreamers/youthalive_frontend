@@ -23,8 +23,11 @@ export interface Attendee {
   invoiceNo: string;
   name: string;
   email: string;
+  phone?: string;
+  church?: string;
   checkedIn: boolean;
   checkInTime?: string;
+  event?: string;
 }
 
 export interface SearchQuery {
@@ -34,15 +37,30 @@ export interface SearchQuery {
 
 export interface ScanData {
   qrData: string;
+  eventId?: string; // Add eventId to ensure QR scans are for specific event
 }
 
 export const checkinService = {
   searchAttendees: async (searchQuery: SearchQuery): Promise<Attendee[]> => {
     const response = await checkinAPI.get('/checkin/search', { params: searchQuery });
     return response.data.data || response.data; // Handle both wrapped and unwrapped responses
-  },  scanQR: async (scanData: ScanData): Promise<{ ticket: Attendee; message: string }> => {
+  },
+
+  lookupTicket: async (invoiceNo: string, eventId?: string): Promise<Attendee> => {
+    const requestData: any = { invoiceNo };
+    if (eventId) {
+      requestData.eventId = eventId;
+    }
+    const response = await checkinAPI.post('/checkin/lookup', requestData);
+    return response.data.data || response.data;
+  },
+
+  scanQR: async (scanData: ScanData & { eventId?: string }): Promise<{ ticket: Attendee; message: string }> => {
     // Transform qrData to the format the backend expects
-    const requestData = { invoiceNo: scanData.qrData };
+    const requestData: any = { invoiceNo: scanData.qrData };
+    if (scanData.eventId) {
+      requestData.eventId = scanData.eventId;
+    }
     const response = await checkinAPI.post('/checkin/scan', requestData);
     // Handle backend's structured response
     return {
