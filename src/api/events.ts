@@ -3,7 +3,7 @@ import axios from 'axios';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
 const eventsAPI = axios.create({
-  baseURL: `${API_BASE_URL}/events`,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -30,7 +30,7 @@ export interface Event {
 
 export const eventsService = {
   getEvents: async (): Promise<Event[]> => {
-    const response = await eventsAPI.get('/');
+    const response = await eventsAPI.get('/events');
     return response.data.data || response.data; // Handle both wrapped and unwrapped responses
   },
 };

@@ -3,7 +3,7 @@ import axios from 'axios';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
 const authAPI = axios.create({
-  baseURL: `${API_BASE_URL}/auth`,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -51,22 +51,21 @@ export interface AuthResponse {
 
 export const authService = {
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const response = await authAPI.post('/login', credentials);
+    const response = await authAPI.post('/auth/login', credentials);
     return response.data;
   },
 
   register: async (data: RegisterData): Promise<AuthResponse> => {
-    const response = await authAPI.post('/register', data);
+    const response = await authAPI.post('/auth/register', data);
     return response.data;
   },
-
   forgotPassword: async (data: ForgotPasswordData): Promise<{ message: string }> => {
-    const response = await authAPI.post('/forgot-password', data);
+    const response = await authAPI.post('/auth/forgot-password', data);
     return response.data;
   },
 
   resetPassword: async (data: ResetPasswordData): Promise<{ message: string }> => {
-    const response = await authAPI.post('/reset-password', data);
+    const response = await authAPI.post('/auth/reset-password', data);
     return response.data;
   },
 };

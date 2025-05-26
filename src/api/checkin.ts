@@ -3,7 +3,7 @@ import axios from 'axios';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
 const checkinAPI = axios.create({
-  baseURL: `${API_BASE_URL}/checkin`,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -38,12 +38,12 @@ export interface ScanData {
 
 export const checkinService = {
   searchAttendees: async (searchQuery: SearchQuery): Promise<Attendee[]> => {
-    const response = await checkinAPI.get('/search', { params: searchQuery });
+    const response = await checkinAPI.get('/checkin/search', { params: searchQuery });
     return response.data.data || response.data; // Handle both wrapped and unwrapped responses
   },  scanQR: async (scanData: ScanData): Promise<{ ticket: Attendee; message: string }> => {
     // Transform qrData to the format the backend expects
     const requestData = { invoiceNo: scanData.qrData };
-    const response = await checkinAPI.post('/scan', requestData);
+    const response = await checkinAPI.post('/checkin/scan', requestData);
     // Handle backend's structured response
     return {
       ticket: response.data.data || response.data,
