@@ -12,10 +12,11 @@ interface QRScannerProps {
 
 const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanError, eventId }) => {
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const scannedCodesRef = useRef<Set<string>>(new Set()); // Use ref to avoid re-renders
   const [isScanning, setIsScanning] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error' | ''>('');
-  const [scannedCodes, setScannedCodes] = useState<Set<string>>(new Set()); // Track scanned codes to prevent duplicates
+  const [scannedCount, setScannedCount] = useState(0); // Track count for display without triggering re-renders
   
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -41,11 +42,9 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanError, event
     };
 
     const scanner = new (Html5QrcodeScanner as any)('qr-reader', config, false);
-    scannerRef.current = scanner;
-
-    const onScanSuccessCallback = async (decodedText: string) => {
+    scannerRef.current = scanner;    const onScanSuccessCallback = async (decodedText: string) => {
       // Check for duplicate scans
-      if (scannedCodes.has(decodedText)) {
+      if (scannedCodesRef.current.has(decodedText)) {
         setMessage('This QR code has already been scanned');
         setMessageType('error');
         setTimeout(() => {
@@ -64,11 +63,8 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanError, event
         const ticketDetails = await checkinService.lookupTicket(decodedText, eventId);
         
         // Add to scanned codes to prevent duplicate scans
-        setScannedCodes(prev => {
-          const newSet = new Set(prev);
-          newSet.add(decodedText);
-          return newSet;
-        });
+        scannedCodesRef.current.add(decodedText);
+        setScannedCount(scannedCodesRef.current.size); // Update count for display
         
         // Show the modal with ticket details
         setCurrentTicket(ticketDetails);
@@ -138,9 +134,8 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanError, event
           });
         } catch (error) {
           // Suppress cleanup errors
-        }
-      }    };
-  }, [onScanSuccess, onScanError, eventId, scannedCodes]); // Add scannedCodes to dependencies
+        }      }    };
+  }, [onScanSuccess, onScanError, eventId]); // Removed scannedCodes dependency to prevent re-initialization
 
   // Handle modal confirmation (actual check-in)
   const handleConfirmCheckin = async () => {
@@ -199,10 +194,10 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanError, event
     setShowModal(false);
     setCurrentTicket(null);
   };
-
   // Function to clear scanned codes history
   const clearScannedCodes = () => {
-    setScannedCodes(new Set());
+    scannedCodesRef.current.clear();
+    setScannedCount(0);
     setMessage('Scanned codes history cleared');
     setMessageType('success');
     setTimeout(() => {
@@ -237,12 +232,11 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanError, event
         )}
 
         <div id="qr-reader" className="qr-scanner"></div>
-        
-        <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-          {scannedCodes.size > 0 && (
+          <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+          {scannedCount > 0 && (
             <div style={{ marginBottom: '1rem' }}>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                Scanned codes: {scannedCodes.size}
+                Scanned codes: {scannedCount}
               </p>
               <button 
                 onClick={clearScannedCodes}
