@@ -139,9 +139,8 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanError, event
         } catch (error) {
           // Suppress cleanup errors
         }
-      }
-    };
-  }, [onScanSuccess, onScanError, eventId]); // Add eventId to dependencies
+      }    };
+  }, [onScanSuccess, onScanError, eventId, scannedCodes]); // Add scannedCodes to dependencies
 
   // Handle modal confirmation (actual check-in)
   const handleConfirmCheckin = async () => {
