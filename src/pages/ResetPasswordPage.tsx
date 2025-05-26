@@ -6,10 +6,9 @@ const ResetPasswordPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
-
   const [formData, setFormData] = useState<ResetPasswordData>({
     token: token || '',
-    password: '',
+    newPassword: '',
   });
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -30,14 +29,12 @@ const ResetPasswordPage: React.FC = () => {
     if (!token) {
       setError('Invalid or missing reset token');
       return;
-    }
-
-    if (formData.password !== confirmPassword) {
+    }    if (formData.newPassword !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
 
-    if (formData.password.length < 6) {
+    if (formData.newPassword.length < 6) {
       setError('Password must be at least 6 characters long');
       return;
     }
@@ -92,16 +89,15 @@ const ResetPasswordPage: React.FC = () => {
                   <small>Redirecting to login page...</small>
                 </div>
               )}
-              
-              <div className="form-group">
-                <label htmlFor="password" className="form-label">
+                <div className="form-group">
+                <label htmlFor="newPassword" className="form-label">
                   New Password
                 </label>
                 <input
                   type="password"
-                  id="password"
-                  name="password"
-                  value={formData.password}
+                  id="newPassword"
+                  name="newPassword"
+                  value={formData.newPassword}
                   onChange={handleChange}
                   className="form-input"
                   required
