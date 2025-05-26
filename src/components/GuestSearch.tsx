@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { checkinService, Attendee } from '../api/checkin';
+import { exportService } from '../api/export';
 
 interface GuestSearchProps {
   eventId?: string;
@@ -9,6 +10,7 @@ const GuestSearch: React.FC<GuestSearchProps> = ({ eventId }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -65,15 +67,51 @@ const GuestSearch: React.FC<GuestSearchProps> = ({ eventId }) => {
     }
   };
 
+  const handleExport = async () => {
+    if (!eventId) return;
+    
+    setIsExporting(true);
+    setError('');
+    
+    try {
+      await exportService.exportTickets(eventId);
+    } catch (error: any) {
+      setError('Failed to export tickets. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleString();
   };
 
   return (
     <div>
-      <h2 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>
-        Guest Search
-      </h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h2 style={{ color: 'var(--text-primary)' }}>
+          Guest Search
+        </h2>
+        {eventId && (
+          <button
+            onClick={handleExport}
+            className="btn btn-secondary"
+            disabled={isExporting}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            {isExporting ? (
+              <>
+                <div className="loading-spinner" style={{ width: '16px', height: '16px' }}></div>
+                Exporting...
+              </>
+            ) : (
+              <>
+                📊 Export Guest List
+              </>
+            )}
+          </button>
+        )}
+      </div>
       
       <div className="search-container">
         <div className="form-group">
