@@ -69,12 +69,10 @@ const CheckinModal: React.FC<CheckinModalProps> = ({
               <span>{ticketDetails.invoiceNo}</span>
             </div>
             
-            {ticketDetails.quantity && ticketDetails.quantity > 1 && (
-              <div className="detail-row">
-                <label>Tickets Purchased:</label>
-                <span>{ticketDetails.quantity}</span>
-              </div>
-            )}
+            <div className="detail-row">
+              <label>Quantity:</label>
+              <span>{ticketDetails.quantity || 1}</span>
+            </div>
             
             {ticketDetails.productDetails && (
               <div className="detail-row">
