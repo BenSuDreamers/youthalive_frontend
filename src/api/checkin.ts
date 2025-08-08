@@ -7,7 +7,36 @@ const checkinAPI = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30 second timeout for high-load scenarios
 });
+
+// Add retry interceptor for failed requests
+checkinAPI.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const config = error.config;
+    
+    // Retry logic for network errors or 5xx errors
+    if (
+      !config._retry && 
+      (error.code === 'ECONNABORTED' || 
+       error.code === 'NETWORK_ERROR' ||
+       (error.response && error.response.status >= 500))
+    ) {
+      config._retry = true;
+      config._retryCount = (config._retryCount || 0) + 1;
+      
+      if (config._retryCount <= 3) {
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, config._retryCount - 1) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return checkinAPI(config);
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
 
 // Add token to requests if available
 checkinAPI.interceptors.request.use((config) => {

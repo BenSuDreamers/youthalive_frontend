@@ -13,17 +13,16 @@ interface QRScannerProps {
 const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanError, eventId }) => {
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const scannedCodesRef = useRef<Set<string>>(new Set()); // Use ref to avoid re-renders
+  const lastScanTimeRef = useRef<number>(0); // Rate limiting for scans
   const [isScanning, setIsScanning] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error' | ''>('');
   const [scannedCount, setScannedCount] = useState(0); // Track count for display without triggering re-renders
-  
+
   // Modal state
   const [showModal, setShowModal] = useState(false);
   const [currentTicket, setCurrentTicket] = useState<Attendee | null>(null);
-  const [isProcessingCheckin, setIsProcessingCheckin] = useState(false);
-
-  useEffect(() => {
+  const [isProcessingCheckin, setIsProcessingCheckin] = useState(false);  useEffect(() => {
     const config = {
       fps: 10,
       qrbox: { width: 250, height: 250 },
@@ -43,6 +42,13 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanError, event
 
     const scanner = new (Html5QrcodeScanner as any)('qr-reader', config, false);
     scannerRef.current = scanner;    const onScanSuccessCallback = async (decodedText: string) => {
+      // Rate limiting: prevent scanning same QR code too quickly (minimum 2 seconds between scans)
+      const currentTime = Date.now();
+      if (currentTime - lastScanTimeRef.current < 2000) {
+        return; // Ignore rapid successive scans
+      }
+      lastScanTimeRef.current = currentTime;
+
       // Check for duplicate scans
       if (scannedCodesRef.current.has(decodedText)) {
         setMessage('This QR code has already been scanned');
